@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UFidelitas – SOC Game</title>
+  <style>
+    :root{
+      --bg:#0d0f1a; --panel:#161b2e; --muted:#a0a8c2; --text:#f4f6fb; --accent:#7fffd4; --good:#4ade80; --bad:#f87171; --warn:#facc15;
+      --shadow: 0 4px 20px rgba(0,0,0,.4);
+    }
+    *{box-sizing:border-box}
+    body{margin:0; font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu; background:var(--bg); color:var(--text)}
+    header{position:sticky; top:0; z-index:10; backdrop-filter:saturate(1.2) blur(8px); background:rgba(22,27,46,.85); border-bottom:1px solid rgba(127,255,212,.3)}
+    .wrap{max-width:1100px; margin:0 auto; padding:16px}
+    .brand{display:flex; gap:12px; align-items:center}
+    .brand img{height:40px}
+    .brand h1{font-size:20px; margin:0; letter-spacing:.3px; display:flex; align-items:center; gap:8px}
+    .tag{padding:2px 8px; border-radius:999px; font-size:12px; background:rgba(127,255,212,.15); color:var(--accent); border:1px solid rgba(127,255,212,.25)}
+
+    .hud{display:grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap:10px; margin-top:10px}
+    .card{background:var(--panel); border:1px solid rgba(127,255,212,.15); border-radius:16px; padding:14px; box-shadow:var(--shadow)}
+    .card h3{margin:0 0 6px 0; font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.6px; display:flex; align-items:center; gap:6px}
+    .stat{font-size:22px; font-weight:700; display:flex; align-items:center; gap:6px}
+    .main{max-width:1100px; margin:24px auto; padding:0 16px 40px}
+
+    .panel{display:grid; grid-template-columns: 1.1fr .9fr .7fr; gap:18px}
+    @media (max-width: 1100px){ .panel{grid-template-columns: 1.1fr .9fr} }
+    @media (max-width: 900px){ .panel{grid-template-columns: 1fr} }
+
+    .scenario{min-height:380px}
+    .scenario h2{margin:0 0 10px 0; font-size:22px; display:flex; gap:8px; align-items:center}
+    .scenario .meta{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px}
+    .badge{font-size:12px; padding:4px 10px; border-radius:999px; border:1px solid rgba(127,255,212,.25); color:var(--muted); background:rgba(127,255,212,.05)}
+
+    .options{display:grid; gap:10px}
+    .option{padding:14px; border-radius:14px; background:rgba(255,255,255,.02); border:1px solid rgba(127,255,212,.15); cursor:pointer; transition:.15s; position:relative}
+    .option:hover{transform:translateY(-1px); border-color:rgba(127,255,212,.4); background:rgba(127,255,212,.05)}
+    .option.correct{outline:2px solid var(--good); background:rgba(74,222,128,.1)}
+    .option.wrong{outline:2px solid var(--bad); background:rgba(248,113,113,.1)}
+    .option small{display:inline-block; color:var(--muted)}
+
+    .log{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:rgba(0,0,0,.2); border:1px dashed rgba(127,255,212,.25); padding:12px; border-radius:14px; max-height:360px; overflow:auto; font-size:12px}
+
+    .footer{display:flex; gap:10px; align-items:center; justify-content:space-between; margin-top:14px}
+    button{background:var(--accent); color:#000; border:none; border-radius:12px; padding:12px 14px; font-weight:700; cursor:pointer; box-shadow:var(--shadow); display:flex; align-items:center; gap:6px; transition:background .2s}
+    button.secondary{background:transparent; color:var(--text); border:1px solid rgba(127,255,212,.3)}
+    button:hover{background:#5ce1c6}
+    button:disabled{opacity:.5; cursor:not-allowed}
+
+    .start{display:grid; place-items:center; min-height:62vh; text-align:center}
+    .start .pick{display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin:10px 0 0}
+    .mode{background:var(--panel); border:1px solid rgba(127,255,212,.2); padding:12px 14px; border-radius:14px; cursor:pointer}
+    .mode.selected{outline:2px solid var(--accent); background:rgba(127,255,212,.05)}
+
+    .toast{position:fixed; right:16px; bottom:16px; background:rgba(0,0,0,.7); border:1px solid rgba(127,255,212,.3); padding:10px 12px; border-radius:12px; box-shadow:var(--shadow); display:none; color:#fff}
+    .kbd{font-family: ui-monospace, monospace; background:rgba(0,0,0,.4); border:1px solid rgba(127,255,212,.3); padding:1px 6px; border-radius:6px}
+
+    .pill{padding:2px 8px; border-radius:999px; border:1px solid rgba(127,255,212,.3); font-size:11px; color:var(--muted); background:rgba(127,255,212,.05)}
+    .explain{margin-top:12px; color:var(--muted)}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="brand">
+        <img src="data:image/png;base64,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" alt="UFidelitas Logo"/>
+        <div class="tag">🎯 UFidelitas</div>
+        <h1>SOC Game 🛡️</h1>
+      </div>
+      <div class="hud">
+        <div class="card"><h3>🏆 Puntaje</h3><div class="stat" id="score">0</div></div>
+        <div class="card"><h3>🧩 Incidentes</h3><div class="stat"><span id="done">0</span>/<span id="total">0</span></div></div>
+        <div class="card"><h3>⏱️ Tiempo simulado</h3><div class="stat" id="clock">00:00</div></div>
+        <div class="card"><h3>🧪 MTTD / MTTR</h3><div class="stat"><span id="mttd">–</span> / <span id="mttr">–</span> min</div></div>
+        <div class="card"><h3>✅ Conformidad</h3><div class="stat" id="compliance">100%</div></div>
+        <div class="card"><h3>🥇 Récord</h3><div class="stat" id="best">—</div></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <section class="start" id="start">
+      <div class="card" style="max-width:760px; text-align:left">
+        <h2>Elige tu modelo de SOC</h2>
+        <p style="color:var(--muted); margin-top:8px">Las reglas operativas y los tiempos de escalamiento cambian según el modelo. Esto afecta tus métricas (MTTD/MTTR) y la conformidad.
+        <span class="pill">Consejo: piensa en gobernanza y playbooks.</span></p>
+        <div class="start-ux">
+          <div class="pick">
+            <div class="mode" data-mode="interno"><strong>Interno</strong> <span>🏠</span><br><small>Control total, tiempos rápidos, alta carga de equipo.</small></div>
+            <div class="mode" data-mode="tercerizado"><strong>Tercerizado</strong> <span>🤝</span><br><small>Especialistas, SLAs y coordinación crítica.</small></div>
+            <div class="mode" data-mode="hibrido"><strong>Híbrido</strong> <span>🧷</span><br><small>Monitoreo 24/7 con gestión interna de críticos.</small></div>
+          </div>
+          <div style="margin-top:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap">
+            <label style="display:flex; gap:8px; align-items:center"><input type="checkbox" id="practice"/> <span>🧭 Modo práctica guiada (sugerencias antes de responder)</span></label>
+            <label style="display:flex; gap:8px; align-items:center"><input type="checkbox" id="notes" checked/> <span>📒 Mostrar notas didácticas al cerrar cada incidente</span></label>
+          </div>
+        </div>
+        <div class="footer">
+          <div style="color:var(--muted)">Usa <span class="kbd">1</span>, <span class="kbd">2</span>, <span class="kbd">3</span> para responder más rápido.</div>
+          <button id="begin" disabled>Iniciar simulación</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="game" style="display:none">
+      <div class="card scenario">
+        <h2 id="title">—</h2>
+        <div class="meta" id="tags"></div>
+        <div id="hint" class="pill" style="display:none">🧭 Sugerencia: piensa en NIST y playbook aplicable…</div>
+        <div class="options" id="options"></div>
+        <div class="explain" id="explain"></div>
+        <div id="didactic" class="explain" style="display:none; border-top:1px dashed rgba(255,255,255,.15); padding-top:8px"></div>
+        <div class="footer">
+          <button class="secondary" id="skip">Saltar</button>
+          <button id="next" disabled>Siguiente</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Registros y contexto</h3>
+        <div class="log" id="log"></div>
+        <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap">
+          <span class="pill" id="nist-pill">NIST: —</span>
+          <span class="pill" id="soc-pill">SOC: —</span>
+        </div>
+      </div>
+      <div class="card" id="gloss">
+        <h3>Glosario 🤓</h3>
+        <input id="gsearch" placeholder="Buscar sigla…" style="width:100%; padding:8px 10px; border-radius:10px; border:1px solid rgba(255,255,255,.2); background:#0e1220; color:var(--text); margin-bottom:8px"/>
+        <div id="glist" class="log" style="max-height:320px"></div>
+      </div>
+    </section>
+
+    <section class="card" id="end" style="display:none; max-width:900px; margin:0 auto">
+      <h2>Debrief</h2>
+      <p id="summary" style="color:var(--muted)"></p>
+      <div class="footer">
+        <button id="restart">Reiniciar</button>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+  const qs = s=>document.querySelector(s);
+  const qsa = s=>Array.from(document.querySelectorAll(s));
+
+  const store = {
+    mode: null,
+    score: 0,
+    minutes: 0,
+    incidentsDone: 0,
+    mttd: [],
+    mttr: [],
+    compliance: 100,
+    best: Number(localStorage.getItem('socquest_best')||0),
+    practice: false,
+    showNotes: true
+  };
+
+  const MODES = {
+    interno: { name:'Interno', escalation: 5,  detectionBonus: 2, responseBonus: 2, complianceBias: 5 },
+    tercerizado: { name:'Tercerizado', escalation: 12, detectionBonus: 0, responseBonus: 0, complianceBias: 8 },
+    hibrido: { name:'Híbrido', escalation: 8, detectionBonus: 1, responseBonus: 1, complianceBias: 7 }
+  };
+
+  const GLOSS = {
+    'SIEM':'Security Information and Event Management (Gestión de Información y Eventos de Seguridad)',
+    'EDR':'Endpoint Detection and Response (Detección y Respuesta en Endpoints)',
+    'SOAR':'Security Orchestration, Automation and Response (Orquestación/Automatización de Seguridad)',
+    'OT':'Operational Technology (Tecnología Operativa)',
+    'ICS':'Industrial Control Systems (Sistemas de Control Industrial)',
+    'PLC':'Programmable Logic Controller (Controlador Lógico Programable)',
+    'NOC':'Network Operations Center (Centro de Operaciones de Red)',
+    'GRC':'Governance, Risk & Compliance (Gobernanza, Riesgo y Cumplimiento)',
+    'MFA':'Multi-Factor Authentication (Autenticación Multifactor)',
+    'O365':'Microsoft 365 (Correo/Identidad en la nube)',
+    'WAF':'Web Application Firewall (Cortafuegos de Aplicaciones Web)',
+    'CDN':'Content Delivery Network (Red de Entrega de Contenidos)',
+    'DLP':'Data Loss Prevention (Prevención de Pérdida de Datos)',
+    'IAM':'Identity and Access Management (Gestión de Identidades y Accesos)',
+    'S3':'Simple Storage Service (Almacenamiento de objetos en la nube)',
+    'API':'Application Programming Interface (Interfaz de Programación de Aplicaciones)'
+  };
+  function annotate(text){
+    if(!text) return '';
+    let html = text.replace(/\n/g,'<br>');
+    for(const [k,v] of Object.entries(GLOSS)){
+      const re = new RegExp(`\b${k}\b`,'g');
+      html = html.replace(re, `<abbr title="${v}">${k}</abbr>`);
+    }
+    return html;
+  }
+
+  const SCENARIOS = [
+    {
+      title: 'Phishing con inicio de sesión anómalo',
+      tags:['EDR','SIEM','Correo','Cuentas privilegiadas','MFA','O365'],
+      log:`[SIEM][08:12] Múltiples fallos de autenticación desde 190.10.30.22 \n[O365][08:14] MFA no solicitado en login de admin@corp\n[EDR][08:15] Token de sesión anómalo en WS-ACCT01`,
+      options:[
+        {text:'Resetear de inmediato la contraseña y cerrar sesión en todos los dispositivos', fn:'Respond', good:true, nist:'RESPOND', soc:'Playbook: Compromiso de credenciales', time: 6, score: 140, explain:'Contiene y revoca el abuso del token. Aísla el impacto y permite análisis forense posterior (tokens, reglas de reenvío y apps OAuth).'},
+        {text:'Enviar un correo a toda la empresa alertando sobre phishing', fn:'Protect', good:false, nist:'PROTECT', soc:'Concientización (Awareness)', time: 8, score: -20, explain:'Útil para prevención general, pero no contiene el incidente activo. Primero contén y luego comunica.'},
+        {text:'Revisar correlaciones en el SIEM para confirmar alcance (búsqueda por IP, user, token y geolocalización)', fn:'Detect', good:true, nist:'DETECT', soc:'Análisis de eventos', time: 4, score: 80, explain:'Reduce falsos positivos, descubre reglas de bandeja y posibles accesos desde TOR/VPN. Complementa la contención.'}
+      ],
+      ideal:['Detect','Respond']
+    },
+    {
+      title: 'Ransomware en movimiento lateral',
+      tags:['EDR','Red','SOAR','Backups'],
+      log:`[EDR][02:11] WS-FIN07 crea procesos cifradores\n[NET][02:12] SMB lateral a 8 hosts\n[SOAR][02:13] Playbook sugiere aislamiento automático`,
+      options:[
+        {text:'Aislar de la red los hosts afectados desde EDR (cortar SMB y RDP)', fn:'Respond', good:true, nist:'RESPOND', soc:'Contención', time: 5, score: 160, explain:'Corta el movimiento lateral y detiene el cifrado en curso. Gana tiempo para erradicación y restauración.'},
+        {text:'Restaurar de inmediato desde respaldos', fn:'Recover', good:false, nist:'RECOVER', soc:'Recuperación', time: 12, score: 10, explain:'Restaurar sin contención puede reinfectar. Asegura erradicación (IOC, notas, claves) antes de recuperar.'},
+        {text:'Notificar a legal y comunicaciones; evaluar requerimientos regulatorios', fn:'Identify', good:true, nist:'IDENTIFY', soc:'Gestión de crisis', time: 3, score: 60, explain:'Coordina decisiones (pago/negociación, denuncia, reporte a autoridades) y prepara canales de comunicación.'}
+      ],
+      ideal:['Respond','Identify']
+    },
+    {
+      title: 'Pérdida de telemetría del firewall perimetral',
+      tags:['SIEM','Red','Monitoreo','Integración','NOC'],
+      log:`[SIEM][10:31] Último log recibido de FW-EDGE12 hace 25 min\n[NOC][10:33] Cambio de firmware nocturno registrado`,
+      options:[
+        {text:'Verificar integridad y restablecer envío de logs (certificados, NTP, reachability)', fn:'Protect', good:true, nist:'PROTECT', soc:'Hardening / Telemetría', time: 7, score: 100, explain:'Sin logs, tienes un punto ciego. Reestablece visibilidad y valida firmas/tiempos para evitar elusión.'},
+        {text:'Tratar como incidente y aplicar contención preventiva (reglas restrictivas temporales en perímetro)', fn:'Respond', good:true, nist:'RESPOND', soc:'Contención preventiva', time: 5, score: 70, explain:'Hasta descartar ataque o manipulación, reduce superficie de exposición.'},
+        {text:'Ignorar: probablemente es mantenimiento', fn:'Detect', good:false, nist:'DETECT', soc:'—', time: 0, score: -120, explain:'Normalizar fallas de logging crea puntos ciegos críticos y brechas de cumplimiento/auditoría.'}
+      ],
+      ideal:['Protect','Respond']
+    },
+    {
+      title: 'Anomalía en red OT (industria/energía)',
+      tags:['ICS','Red','OT','Seguridad física','BCP'],
+      log:`[ICS][15:44] Variaciones fuera de norma en válvulas \n[NET][15:45] Tráfico inusual desde estación de ingeniería a PLCs`,
+      options:[
+        {text:'Coordinar con operaciones para modo seguro y evaluar impacto físico', fn:'Respond', good:true, nist:'RESPOND', soc:'Coordinación BCP/OT', time: 6, score: 140, explain:'Seguridad humana e infraestructura primero. Define umbrales de paro seguro y registro de cambios.'},
+        {text:'Ejecutar caza de amenazas en red OT (listas blancas, comportamiento)', fn:'Detect', good:true, nist:'DETECT', soc:'Threat hunting', time: 8, score: 90, explain:'Confirma alcance, origen (ingeniería/tercero) y evita falsos positivos por mantenimiento.'},
+        {text:'Desplegar parches de seguridad en caliente', fn:'Protect', good:false, nist:'PROTECT', soc:'Gestión de parches', time: 15, score: -50, explain:'En OT, parchar sin análisis/ventanas puede detener procesos críticos o dañar equipos.'}
+      ],
+      ideal:['Respond','Detect']
+    },
+    {
+      title: 'Reporte y documentación regulatoria',
+      tags:['Gobernanza','Regulación','GRC','Lecciones aprendidas'],
+      log:`[GRC][09:00] Solicitud de consolidar reporte de incidente mayor\n[BOARD][09:05] Comité de crisis pide cronología y métricas`,
+      options:[
+        {text:'Completar informe con clasificación, impacto, acciones, evidencias y tiempos', fn:'Recover', good:true, nist:'RECOVER', soc:'Post-incident / Reporting', time: 6, score: 120, explain:'Cierra el ciclo, soporta cumplimiento y habilita mejora continua. Incluye matriz de comunicación y umbrales regulatorios.'},
+        {text:'Publicar comunicado sin validar con legal/PR', fn:'Identify', good:false, nist:'IDENTIFY', soc:'Comunicación', time: 2, score: -80, explain:'Riesgo reputacional/regulatorio. Asegura alineación con hechos, tiempos y obligaciones de notificación.'},
+        {text:'Actualizar playbooks, reglas SIEM/SOAR y controles derivados del incidente', fn:'Protect', good:true, nist:'PROTECT', soc:'Mejora continua', time: 4, score: 80, explain:'Aprender y endurecer controles reduce recurrencia; documenta cambios y valida en ambiente de prueba.'}
+      ],
+      ideal:['Recover','Protect']
+    },
+    {
+      title: 'Ataque de fatiga MFA (push bombing)',
+      tags:['MFA','IAM','O365','SIEM'],
+      log:`[O365][07:21] 36 solicitudes de aprobación MFA en 5 min\n[SIEM][07:22] Accesos fallidos desde ASN anómalo`,
+      options:[
+        {text:'Bloquear temporalmente el inicio de sesión y exigir re-autenticación con number-matching', fn:'Respond', good:true, nist:'RESPOND', soc:'Gestión de identidad', time: 3, score: 110, explain:'Corta el vector de abuso y eleva el umbral de fricción contra el atacante.'},
+        {text:'Buscar reglas de reenvío, apps OAuth y sesiones persistentes del usuario', fn:'Detect', good:true, nist:'DETECT', soc:'Analítica de identidad', time: 4, score: 90, explain:'Si ya aceptó algún push, podría haber persistencia por tokens o apps maliciosas.'},
+        {text:'Enviar recordatorio de buenas prácticas MFA a toda la empresa', fn:'Protect', good:false, nist:'PROTECT', soc:'Concientización', time: 5, score: -10, explain:'Útil luego; durante el ataque, prioriza contención/detección.'}
+      ],
+      ideal:['Respond','Detect']
+    },
+    {
+      title: 'Business Email Compromise (BEC) y fraude de pagos',
+      tags:['Correo','O365','Finance','Legal','SIEM'],
+      log:`[FIN][11:06] Proveedor solicita cambio de cuenta bancaria\n[Correo][11:10] Respuesta sospechosa desde dominio look-alike`,
+      options:[
+        {text:'Congelar pagos y verificar por canal alterno con el proveedor', fn:'Respond', good:true, nist:'RESPOND', soc:'Gestión de fraude', time: 3, score: 140, explain:'Evita pérdida financiera inmediata. Usa canal fuera del hilo de correo comprometido.'},
+        {text:'Analizar la cuenta comprometida (reglas, delegaciones, apps OAuth, login geo)', fn:'Detect', good:true, nist:'DETECT', soc:'Forense de correo', time: 6, score: 80, explain:'Identifica persistencia y alcance (otros buzones afectados).'},
+        {text:'Publicar comunicado interno sin coordinación', fn:'Identify', good:false, nist:'IDENTIFY', soc:'Comunicación', time: 2, score: -60, explain:'Coordina con legal/finanzas y define evidencias antes de comunicar.'}
+      ],
+      ideal:['Respond','Detect']
+    },
+    {
+      title: 'Bucket S3 público por error (exposición de datos)',
+      tags:['S3','IAM','SIEM','DLP'],
+      log:`[DLP][13:40] Detección de datos sensibles en URL pública\n[Cloud][13:41] Política de bucket permite List/Get a anónimo`,
+      options:[
+        {text:'Bloquear acceso público y aplicar políticas de mínimo privilegio (Block Public Access)', fn:'Protect', good:true, nist:'PROTECT', soc:'Hardening cloud', time: 3, score: 120, explain:'Cierra la exposición de inmediato y deja rastro de cambio. Verifica replicaciones y logs.'},
+        {text:'Rotar credenciales y revisar CloudTrail para descargas', fn:'Detect', good:true, nist:'DETECT', soc:'Trazabilidad', time: 6, score: 80, explain:'Confirma si hubo exfiltración y desde qué orígenes/identidades.'},
+        {text:'Esperar a la ventana de cambios semanal', fn:'Recover', good:false, nist:'RECOVER', soc:'Cambio controlado', time: 10, score: -90, explain:'Cuando hay exposición, la urgencia prima sobre la ventana estándar de cambios.'}
+      ],
+      ideal:['Protect','Detect']
+    },
+    {
+      title: 'Compromiso de cadena de suministro (actualización maliciosa)',
+      tags:['SOFTWARE','SBOM','SIEM','EDR'],
+      log:`[SIEM][21:10] Hash de instalador difiere del firmado\n[EDR][21:14] Nuevo servicio con privilegios tras actualización`,
+      options:[
+        {text:'Aislar servidores de actualización y bloquear nuevas instalaciones', fn:'Respond', good:true, nist:'RESPOND', soc:'Contención supply chain', time: 5, score: 140, explain:'Evita mayor propagación. Preserva evidencias para proveedor/autoridades.'},
+        {text:'Inventariar afectados usando SBOM y huellas (hash/IOC) y notificar a áreas', fn:'Identify', good:true, nist:'IDENTIFY', soc:'Gestión de activos', time: 7, score: 90, explain:'Mapea el alcance real (versiones/hosts) y prioriza erradicación.'},
+        {text:'Reinstalar desde la misma fuente (rollback sin análisis)', fn:'Recover', good:false, nist:'RECOVER', soc:'Recuperación', time: 9, score: -60, explain:'Podrías reintroducir el backdoor si la cadena sigue comprometida.'}
+      ],
+      ideal:['Respond','Identify']
+    },
+    {
+      title: 'DDoS contra portal público',
+      tags:['WAF','CDN','Red','Comunicaciones'],
+      log:`[WAF][12:03] picos de solicitudes inválidas 50x\n[CDN][12:05] Saturación en 3 regiones`,
+      options:[
+        {text:'Activar mitigación en WAF/CDN (rate-limit, challenge) y rutas de scrubbing', fn:'Respond', good:true, nist:'RESPOND', soc:'Continuidad del servicio', time: 4, score: 120, explain:'Restaura disponibilidad con filtros/absorción de tráfico.'},
+        {text:'Publicar estado y desviar usuarios a canal alterno', fn:'Identify', good:true, nist:'IDENTIFY', soc:'Comunicaciones de crisis', time: 3, score: 60, explain:'Gestiona expectativas y reduce presión en el canal principal.'},
+        {text:'Aumentar capacidad del backend sin controles', fn:'Protect', good:false, nist:'PROTECT', soc:'Capacidad', time: 6, score: -40, explain:'Escalar sin filtrado solo traslada el problema, puede generar costo elevado.'}
+      ],
+      ideal:['Respond','Identify']
+    },
+    {
+      title: 'Exfiltración por insider (USB/nube personal)',
+      tags:['DLP','EDR','HR','Legal'],
+      log:`[DLP][16:12] Copia masiva de archivos clasificados a USB\n[Proxy][16:15] Carga a almacenamiento personal`,
+      options:[
+        {text:'Suspender sesión y aislar endpoint; preservar evidencia', fn:'Respond', good:true, nist:'RESPOND', soc:'Contención y forense', time: 4, score: 130, explain:'Evita más fuga y mantiene cadena de custodia para acciones disciplinarias/legales.'},
+        {text:'Correlacionar con registros de proxy/EDR para confirmar volumen/archivos', fn:'Detect', good:true, nist:'DETECT', soc:'Analítica DLP', time: 6, score: 80, explain:'Cuantifica el impacto y confirma intención vs. falso positivo.'},
+        {text:'Notificar públicamente al área implicada', fn:'Identify', good:false, nist:'IDENTIFY', soc:'Comunicación', time: 2, score: -70, explain:'Riesgo legal/HR. Coordina discretamente con RR.HH. y Legal primero.'}
+      ],
+      ideal:['Respond','Detect']
+    },
+    {
+      title: 'Manipulación del propio SIEM (compromiso del SOC)',
+      tags:['SIEM','SOAR','Segregación de funciones'],
+      log:`[SIEM][03:22] Falta de eventos críticos y cambios de reglas sin RFC\n[SOAR][03:25] Flujos deshabilitados sin causa aparente`,
+      options:[
+        {text:'Activar captura out-of-band y comparar contra fuentes originales', fn:'Detect', good:true, nist:'DETECT', soc:'Integridad de monitoreo', time: 6, score: 100, explain:'Detecta manipulación del pipeline y evita ceguera inducida.'},
+        {text:'Escalar a crisis y segmentar accesos del equipo SOC (principio de menor privilegio)', fn:'Respond', good:true, nist:'RESPOND', soc:'Segregación y contención', time: 5, score: 120, explain:'Minimiza daño, revisa cuentas privilegiadas y sesiones activas.'},
+        {text:'Restaurar reglas desde backup sin investigación', fn:'Recover', good:false, nist:'RECOVER', soc:'Restauración', time: 7, score: -50, explain:'Podrías reinstalar reglas manipuladas o perder evidencia de la intrusión.'}
+      ],
+      ideal:['Respond','Detect']
+    }
+  ];
+
+  function toast(msg){ const t=qs('#toast'); t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none', 2000) }
+  function fmtMin(m){ const h=Math.floor(m/60), mm=m%60; return (h? String(h).padStart(2,'0')+':':'') + String(mm).padStart(2,'0') }
+
+  let current = -1; let detectedAt = null; let started=false;
+
+  function setMode(mode){ store.mode = MODES[mode]; qsa('.mode').forEach(m=>m.classList.remove('selected')); document.querySelector(`.mode[data-mode="${mode}"]`).classList.add('selected'); qs('#begin').disabled=false }
+
+  function updateHUD(){
+    qs('#score').textContent = store.score;
+    qs('#done').textContent = store.incidentsDone;
+    qs('#total').textContent = SCENARIOS.length;
+    qs('#clock').textContent = fmtMin(store.minutes);
+    qs('#mttd').textContent = store.mttd.length? Math.round(store.mttd.reduce((a,b)=>a+b,0)/store.mttd.length): '–';
+    qs('#mttr').textContent = store.mttr.length? Math.round(store.mttr.reduce((a,b)=>a+b,0)/store.mttr.length): '–';
+    qs('#compliance').textContent = Math.max(0, Math.min(100, Math.round(store.compliance))) + '%';
+    qs('#best').textContent = store.best? store.best: '—';
+  }
+
+  function buildGloss(){
+    const list = Object.entries(GLOSS).sort((a,b)=>a[0].localeCompare(b[0]))
+      .map(([k,v])=>`<div><strong>${k}</strong> — <span style="color:var(--muted)">${v}</span></div>`).join('<hr style="border-color:rgba(255,255,255,.08)">');
+    qs('#glist').innerHTML = list;
+  }
+
+  function filterGloss(){
+    const q = qs('#gsearch').value.trim().toLowerCase();
+    if(!q){ buildGloss(); return; }
+    const list = Object.entries(GLOSS).filter(([k,v])=> k.toLowerCase().includes(q) || v.toLowerCase().includes(q))
+      .map(([k,v])=>`<div><strong>${k}</strong> — <span style="color:var(--muted)">${v}</span></div>`).join('<hr style="border-color:rgba(255,255,255,.08)">');
+    qs('#glist').innerHTML = list || '<em style="color:var(--muted)">Sin resultados</em>';
+  }
+
+  function start(){
+    qs('#start').style.display='none'; qs('#game').style.display='grid'; started=true; store.minutes = store.mode.escalation; 
+    store.practice = qs('#practice').checked; store.showNotes = qs('#notes').checked;
+    updateHUD(); next(); toast('Simulación iniciada: piensa en NIST + Playbooks');
+  }
+
+  function next(){ current++; detectedAt=null; if(current>=SCENARIOS.length){ return endGame() }
+    const sc = SCENARIOS[current];
+    qs('#title').innerHTML = `🚨 ${sc.title}`; 
+    qs('#log').innerHTML = annotate(sc.log);
+    qs('#tags').innerHTML = sc.tags.map(t=>`<span class="badge" title="${GLOSS[t]||''}">${t}${GLOSS[t] ? ' ('+GLOSS[t]+')' : ''}</span>`).join('');
+    qs('#options').innerHTML = '';
+    qs('#explain').textContent='';
+    qs('#didactic').style.display='none'; qs('#didactic').innerHTML='';
+    qs('#nist-pill').textContent='NIST: —';
+    qs('#soc-pill').textContent='SOC: —';
+    if(store.practice){ qs('#hint').style.display='inline-block'; } else { qs('#hint').style.display='none'; }
+
+    sc.options.forEach((op,idx)=>{
+      const el=document.createElement('div'); el.className='option'; el.tabIndex=0; el.dataset.idx=idx;
+      el.innerHTML=`<div style="display:flex; justify-content:space-between; gap:10px"><div>${op.text}</div><small>${op.nist}</small></div>`;
+      el.addEventListener('click',()=>selectOption(op, el, sc));
+      qs('#options').appendChild(el);
+    });
+    qs('#next').disabled=true;
+    updateHUD();
+  }
+
+  function selectOption(op, el, sc){
+    if(el.classList.contains('correct')||el.classList.contains('wrong')) return;
+    const dt = Math.max(1, op.time - (op.good? store.mode.responseBonus: 0));
+    store.minutes += dt;
+
+    if(!detectedAt && (op.nist==='DETECT' || op.nist==='RESPOND')){
+      detectedAt = store.minutes - store.mode.detectionBonus;
+    }
+
+    store.score += op.score;
+    store.compliance += (op.good? +1 : -3) + (store.mode.complianceBias/50);
+
+    el.classList.add(op.good? 'correct':'wrong');
+    qs('#explain').innerHTML = `<span class="pill">${op.nist}</span> <span class="pill">${op.soc}</span> · ${op.explain}`;
+    qs('#nist-pill').textContent = 'NIST: ' + op.nist;
+    qs('#soc-pill').textContent = 'SOC: ' + op.soc;
+
+    const chosen = qsa('.option.correct, .option.wrong').length;
+    if(chosen>=2 || !op.good){ qs('#next').disabled=false }
+    updateHUD();
+  }
+
+  function skip(){ store.minutes += 3; store.score -= 20; store.compliance -= 5; qs('#next').disabled=false; qs('#explain').textContent='Ojo: saltar crea deuda operativa.'; updateHUD(); }
+
+  function finishIncident(){
+    const sc = SCENARIOS[current];
+    const det = detectedAt || store.minutes;
+    const res = store.minutes + 4; 
+    store.mttd.push(det);
+    store.mttr.push(res - det);
+    store.minutes = res; 
+    store.incidentsDone++;
+
+    if(store.showNotes){
+      const ideal = sc.ideal.join(' ➜ ');
+      const notes = `📒 <strong>Notas didácticas</strong><br>
+        <ul>
+          <li><strong>Decisión ideal:</strong> ${ideal}</li>
+          <li><strong>Errores comunes:</strong> actuar sin contención; ignorar telemetría; comunicar sin legal/PR.</li>
+          <li><strong>Evidencias clave:</strong> artefactos del caso (logs, EDR, hash/IOC, timeline) y cadena de custodia.</li>
+          <li><strong>Mapeo:</strong> ${ideal} dentro de NIST, más acciones de PROTECT/RECOVER para cerrar.</li>
+        </ul>`;
+      qs('#didactic').innerHTML = notes; qs('#didactic').style.display='block';
+    }
+
+    updateHUD();
+  }
+
+  function endGame(){
+    qs('#game').style.display='none'; qs('#end').style.display='block';
+    const avgMTTD = qs('#mttd').textContent, avgMTTR = qs('#mttr').textContent;
+    const msg = `Modo: ${store.mode.name}. Puntaje: ${store.score}. MTTD prom.: ${avgMTTD} min · MTTR prom.: ${avgMTTR} min · Conformidad: ${Math.max(0,Math.min(100,Math.round(store.compliance)))}%.`;
+    qs('#summary').innerHTML = msg + ' Revisa el mapeo NIST en cada decisión para reforzar el aprendizaje.';
+    if(store.score > store.best){ store.best = store.score; localStorage.setItem('socquest_best', String(store.best)) }
+    updateHUD();
+  }
+
+  qsa('.mode').forEach(m=> m.addEventListener('click', ()=> setMode(m.dataset.mode)) );
+  document.addEventListener('click', (e)=>{
+    if(e.target && e.target.id==='begin') start();
+    if(e.target && e.target.id==='skip') skip();
+    if(e.target && e.target.id==='next'){ finishIncident(); next(); }
+    if(e.target && e.target.id==='restart') location.reload();
+  });
+
+  document.addEventListener('keydown', (e)=>{
+    if(!started) return;
+    if(['1','2','3'].includes(e.key)){
+      const idx = Number(e.key)-1; const el = qs(`.option[data-idx="${idx}"]`);
+      if(el) el.click();
+    }
+  });
+
+  document.addEventListener('input', (e)=>{ if(e.target && e.target.id==='gsearch') filterGloss(); });
+  buildGloss();
+  updateHUD();
+  </script>
+</body>
+</html>
